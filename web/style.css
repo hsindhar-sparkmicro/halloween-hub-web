@@ -173,6 +173,7 @@ body.welcome-fullscreen.welcome-controls #app>header,body.welcome-fullscreen.wel
  .welcome-sound{left:auto;right:5%;bottom:7%;max-width:75%}
 }
 #app{max-width:none}
+body.welcome-controls .welcome-sound{bottom:max(5%,72px)}
 @media(min-width:2560px) and (min-height:1000px){
  header{height:100px;padding:20px 45px}.brand{font-size:32px}.brand small{font-size:16px}.header-right{gap:24px}#clock{font-size:22px}.icon-button{width:76px;min-height:76px;font-size:30px}
  nav{padding:15px;gap:25px}nav button{font-size:20px;min-height:100px}nav button span{font-size:32px}

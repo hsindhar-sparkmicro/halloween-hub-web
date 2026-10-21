@@ -24,7 +24,8 @@ export function setupWelcomeChrome() {
  }
  new MutationObserver(sync).observe(dashboard,{attributes:true,attributeFilter:['class']});
  document.addEventListener('pointerdown',event=>{
-  if(!welcome()||event.target.closest('#pumpkin,dialog'))return;
+  // Revealing the bottom bar during a button press can intercept its pointerup.
+  if(!welcome()||event.target.closest('#pumpkin,dialog,button,a,input,select,textarea,[role="button"]'))return;
   reveal();
  });
  document.addEventListener('keydown',event=>{

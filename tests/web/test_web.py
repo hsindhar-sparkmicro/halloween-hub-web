@@ -143,6 +143,7 @@ class WebTests(unittest.TestCase):
         # Exercise actual decoding of a persisted Blob through the Library UI.
         self.page.locator('#dashboard .welcome-weather button').click()
         self.page.keyboard.press('Escape')
+        self.page.keyboard.press('Tab')
         self.page.locator('[data-screen="party"]').click()
         self.page.locator('[data-open="music-dialog"]').click()
         self.page.locator('#track-list .track-row').filter(has_text='test.wav').locator('button.primary').click()
@@ -239,8 +240,10 @@ class WebTests(unittest.TestCase):
         self.assertTrue(all(result['result']))
         self.assertEqual(result['invalid'],416)
         # Real playback uses the browser's Range requests, rather than a Blob workaround.
+        self.page.add_style_tag(content='.welcome-sound{bottom:0!important} #ambience-toggle{translate:none!important}')
         self.page.locator('#ambience-toggle').click()
         self.page.wait_for_function("document.querySelector('#ambience-player').currentTime>0")
+        self.assertNotIn('welcome-controls',self.page.locator('body').get_attribute('class') or '')
         self.assertIn('/audio/effects/',self.page.locator('#ambience-player').evaluate('(el)=>el.currentSrc'))
         self.page.locator('#ambience-toggle').click()
         first=self.hub('const item=hub.snapshot().tracks[0];await hub.removeAudio(\'tracks\',item.id);return item.id;')
