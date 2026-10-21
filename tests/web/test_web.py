@@ -172,7 +172,7 @@ class WebTests(unittest.TestCase):
         self.context.route('https://api.open-meteo.com/**', lambda route: route.fulfill(json={'current':{'temperature_2m':8,'apparent_temperature':6,'weather_code':3,'wind_speed_10m':10}}))
         result=self.hub("const {results}=await hub.locations('Montreal');await hub.settings({location:results[0]});hub.weather();return results;")
         self.assertEqual(result[0]['name'], 'Montreal, Canada')
-        self.page.wait_for_function("async()=>{const {hub}=await import('./browser-service.js');return hub.data.weather.current?.temperature_2m===8;}")
+        self.page.wait_for_function("document.querySelector('#weather-status').textContent.includes('Updated')")
         self.assertEqual(self.hub('return hub.weather().status;'), 'fresh')
         self.context.set_offline(True)
         self.assertEqual(self.hub('return hub.weather().status;'), 'stale')
