@@ -21,7 +21,7 @@ def build():
     cache = 'halloween-hub-' + digest.hexdigest()[:16]
     shell = ['./', './index.html'] + [
         './' + p.relative_to(target).as_posix() for p in files
-        if p.suffix in {'.js', '.css', '.png', '.svg', '.ttf', '.wav'}
+        if p.suffix in {'.js', '.css', '.png', '.svg', '.ttf', '.wav', '.mp3', '.ogg'}
     ]
     worker = (source / 'sw.js').read_text()
     start = worker.index('self.addEventListener')

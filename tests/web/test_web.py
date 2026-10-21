@@ -34,6 +34,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
+    def copyfile(self, source, outputfile):
+        try:
+            super().copyfile(source, outputfile)
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # Closing a test tab cancels in-flight offline-cache downloads.
+
 
 class WebTests(unittest.TestCase):
     @classmethod
@@ -127,8 +133,8 @@ class WebTests(unittest.TestCase):
         self.assertEqual(state['settings']['volume'], 23)
         self.assertEqual(state['records'][0]['name'], 'Decorate')
         self.assertTrue(state['records'][0]['done'])
-        self.assertEqual(len(state['tracks']), 1)
-        self.assertEqual(len(state['effects']), 1)
+        self.assertEqual(len([item for item in state['tracks'] if not item.get('included')]), 1)
+        self.assertEqual(len([item for item in state['effects'] if not item.get('included')]), 1)
         self.assertFalse(state['haunt']['active'])
         self.assertFalse(state['scan']['active'])
         self.assertTrue(self.page.locator('#music-player').evaluate('(el)=>el.paused'))
@@ -139,7 +145,7 @@ class WebTests(unittest.TestCase):
         self.page.keyboard.press('Escape')
         self.page.locator('[data-screen="party"]').click()
         self.page.locator('[data-open="music-dialog"]').click()
-        self.page.locator('#track-list button.primary').click()
+        self.page.locator('#track-list .track-row').filter(has_text='test.wav').locator('button.primary').click()
         self.page.wait_for_function("document.querySelector('#music-player').currentTime > 0")
         self.assertTrue(self.page.locator('#music-player').evaluate('(el)=>el.currentSrc.startsWith("blob:")'))
 
@@ -211,6 +217,49 @@ class WebTests(unittest.TestCase):
         self.page.locator('#pumpkin').click()
         self.page.locator('[data-choice="play"]').click()
         self.assertTrue(self.page.locator('[data-game="paint"]').is_visible())
+
+    def test_included_audio_offline_ranges_and_restore(self):
+        state=self.hub('return hub.snapshot();')
+        self.assertEqual(len(state['tracks']),6)
+        self.assertEqual(len(state['effects']),10)
+        self.assertTrue(self.page.locator('#ambience-player').evaluate('(el)=>el.paused'))
+        self.page.evaluate('async()=>{await navigator.serviceWorker.ready;}')
+        self.page.wait_for_function('navigator.serviceWorker.controller !== null')
+        self.context.set_offline(True)
+        result=self.page.evaluate("""async()=>{
+            const {BUNDLED_AUDIO}=await import('./audio-manifest.js');
+            const result=[];
+            for(const item of BUNDLED_AUDIO){
+                const response=await fetch(item.url,{headers:{Range:'bytes=0-127'}});
+                result.push(response.status===206&&(await response.arrayBuffer()).byteLength===128);
+            }
+            const response=await fetch(BUNDLED_AUDIO[0].url,{headers:{Range:'bytes=999999999-'}});
+            return {result,invalid:response.status};
+        }""")
+        self.assertTrue(all(result['result']))
+        self.assertEqual(result['invalid'],416)
+        # Real playback uses the browser's Range requests, rather than a Blob workaround.
+        self.page.locator('#ambience-toggle').click()
+        self.page.wait_for_function("document.querySelector('#ambience-player').currentTime>0")
+        self.assertIn('/audio/effects/',self.page.locator('#ambience-player').evaluate('(el)=>el.currentSrc'))
+        self.page.locator('#ambience-toggle').click()
+        first=self.hub('const item=hub.snapshot().tracks[0];await hub.removeAudio(\'tracks\',item.id);return item.id;')
+        duplicate=self.page.evaluate("""async()=>{
+            const {hub}=await import('./browser-service.js');
+            const {BUNDLED_AUDIO}=await import('./audio-manifest.js');
+            const item=BUNDLED_AUDIO.find(item=>item.kind==='tracks');
+            const blob=await (await fetch(item.url)).blob();
+            return hub.importAudio('tracks',new File([blob],'same-song.mp3',{type:'audio/mpeg'}));
+        }""")
+        self.assertTrue(duplicate['duplicate'])
+        self.assertEqual(duplicate['id'],first)
+        self.hub("await hub.removeAudio('tracks',hub.snapshot().tracks[0].id);")
+        self.page.reload()
+        self.page.wait_for_function("document.querySelector('#connection').textContent.includes('Offline')")
+        self.assertNotIn(first,[item['id'] for item in self.hub('return hub.snapshot().tracks;')])
+        self.hub("await hub.request('/audio/restore','POST');")
+        self.assertEqual(len(self.hub('return hub.snapshot().tracks;')),6)
+        self.assertEqual(self.hub('return hub.audio.length;'),0)
 
     def test_responsive_layouts(self):
         for width,height in [(390,844),(800,480),(1920,1080),(3840,2160)]:

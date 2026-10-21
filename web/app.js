@@ -187,7 +187,7 @@ function renderEffects(){
   $('.welcome-sound-description').textContent=(state.effects||[]).length+' saved sound effects · shuffled';
   (state.effects||[]).forEach(item=>{
     const row=document.createElement('div');row.className='track-row';
-    const label=document.createElement('span');label.textContent=item.name;
+    const label=document.createElement('span');label.textContent=item.name+(item.included?' · Included':'');
     const preview=document.createElement('button');preview.className='secondary';preview.textContent='Listen';
     preview.onclick=()=>{if(state.haunt.active){toast('Stop the scene before previewing an effect');return;}unlockAudio();stopCues();cue.src=mediaUrl('effects',item.id);cue.play().catch(error=>toast(error.message));};
     const remove=document.createElement('button');remove.className='secondary';remove.textContent='×';remove.setAttribute('aria-label','Delete effect '+item.name);
@@ -450,3 +450,5 @@ sync();
 
 $$('[data-export-logs]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();hub.exportLogs();}));
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+
+$('#restore-audio').addEventListener('click',()=>action(async()=>{await api('/audio/restore','POST');toast('Included music and sound effects restored');}));

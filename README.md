@@ -14,7 +14,9 @@ Settings, guests, tasks, simulated detections, and imported MP3/WAV/OGG audio st
 
 Choose your city in Settings for real weather from Open-Meteo. The initial timezone follows your browser; you can change it using an IANA name such as `America/Toronto`. Forecasts refresh at most every 15 minutes and show stale status when offline. This is a non-commercial entertainment site using the free weather service.
 
-After the first successful load and offline-cache installation, the interface, artwork, synthesized sounds, games, and local data work offline. Videos stream on demand and may require connectivity; unavailable videos fall back to artwork/adventures. City search and forecast updates require Internet. Offline caching depends on available browser storage.
+Six music tracks and ten effects from the original kiosk are included in Party Hub → Library and Spooky sounds. Shuffle, previews, and scene effects use them immediately after you choose to play. Removing an included item hides it only on this browser; **Restore included soundtrack** brings it back without changing your imports.
+
+After the first successful load and offline-cache installation, the interface, artwork, included music/effects, synthesized sounds, games, and local data work offline. Videos stream on demand and may require connectivity; unavailable videos fall back to artwork/adventures. City search and forecast updates require Internet. Offline caching depends on available browser storage.
 
 All haunted-house controls and Ghost Detector readings are simulations. There is no camera, microphone, physical sensor, account, shared database, or Python runtime behind the website. Scenes and scans stop on reload, and audio starts muted.
 

@@ -1,5 +1,6 @@
 import {SCENES} from './scenes.js';
 import {MEDIA} from './media-manifest.js';
+import {BUNDLED_AUDIO} from './audio-manifest.js';
 
 const clone = value => structuredClone(value);
 const pick = values => values[Math.floor(Math.random() * values.length)];
@@ -51,9 +52,9 @@ export class BrowserHub {
   constructor() {
     this.db = null;
     this.storageNotice = '';
-    this.data = {settings:clone(DEFAULTS),records:[],detections:[],weather:{},candy:0};
+    this.data = {settings:clone(DEFAULTS),records:[],detections:[],weather:{},candy:0,hidden_audio:[]};
     this.audio = [];
-    this.urls = new Map();
+    this.urls = new Map(BUNDLED_AUDIO.map(item=>[item.id,item.url]));
     this.haunt = {active:false,stage:'Quiet shadows',room:60,porch:80,fog:0,sound:40,
       motion:false,scene:'Quiet shadows',audio:'quiet-scene.wav',progress:0,run_id:0,seed:0,source:'manual'};
     this.scan = {active:false,emf:0,temperature:18.6,rooms:[0,0,0,0],peak:0};
@@ -212,6 +213,11 @@ export class BrowserHub {
   async importAudio(kind,file) {
     if(!(file instanceof Blob)||!file.size||file.size>100*1024*1024||! /\.(mp3|wav|ogg)$/i.test(file.name))throw new Error('Choose an MP3, WAV, or OGG smaller than 100 MB');
     const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await file.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');
+    const included=BUNDLED_AUDIO.find(item=>item.kind===kind&&item.sha256===hash);
+    if(included) {
+      if(this.data.hidden_audio.includes(included.id))await this.save({hidden_audio:this.data.hidden_audio.filter(id=>id!==included.id)});
+      return {id:included.id,duplicate:true};
+    }
     const id=kind+'-'+hash;
     if(this.audio.some(item=>item.id===id))return {id,duplicate:true};
     const item={id,kind,name:file.name,blob:file};
@@ -220,6 +226,10 @@ export class BrowserHub {
     return {id,duplicate:false};
   }
   async removeAudio(kind,id) {
+    if(BUNDLED_AUDIO.some(item=>item.kind===kind&&item.id===id)) {
+      await this.save({hidden_audio:[...new Set([...this.data.hidden_audio,id])]});
+      return {ok:true};
+    }
     const item=this.audio.find(a=>a.kind===kind&&a.id===id);if(!item)throw new Error('Audio file not found');
     await this.write('audio',store=>store.delete(id));
     URL.revokeObjectURL(this.urls.get(id));this.urls.delete(id);this.audio=this.audio.filter(a=>a.id!==id);
@@ -227,7 +237,10 @@ export class BrowserHub {
   }
   snapshot() {
     const settings=clone(this.data.settings);
-    const list=kind=>this.audio.filter(a=>a.kind===kind).map(({id,name})=>({id,name}));
+    const list=kind=>[
+      ...BUNDLED_AUDIO.filter(item=>item.kind===kind&&!this.data.hidden_audio.includes(item.id)).map(({id,name})=>({id,name,included:true})),
+      ...this.audio.filter(a=>a.kind===kind).map(({id,name})=>({id,name}))
+    ];
     return {settings,candy:this.data.candy,records:clone(this.data.records),tracks:list('tracks'),effects:list('effects'),
       detections:clone(this.data.detections.slice(0,20)),weather:this.weather(),countdown:countdown(settings),party_countdown:countdown(settings,Date.now(),true),
       cutscene:{available:true,...MEDIA.cutscenes[0],items:MEDIA.cutscenes},backgrounds:MEDIA.backgrounds,scenes:Object.keys(SCENES),
@@ -237,6 +250,7 @@ export class BrowserHub {
     await this.ready;
     if(path==='/state'){await this.tick();return this.snapshot();}
     if(path==='/settings'&&method==='PATCH')return this.settings(body);
+    if(path==='/audio/restore'&&method==='POST'){await this.save({hidden_audio:[]});return {ok:true};}
     if(path==='/haunt'&&method==='POST')return this.command(body);
     if(path==='/encounter'&&method==='POST')return this.encounter(body);
     if(path==='/scan'&&method==='POST') {
